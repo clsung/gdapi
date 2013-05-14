@@ -11,7 +11,7 @@ config = {
     'download_url': 'http://pypi.python.org/pypi/gdapi',
     'author_email': 'clsung@gmail.com',
     'version': '0.0.1',
-    'install_requires': ['nose', 'mock'],
+    'install_requires': ['nose', 'mock', 'requests'],
     'packages': ['gdapi'],
     'scripts': ['script/download_to_somewhere.py',
                 'script/upload_to_root.py'],
