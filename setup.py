@@ -13,7 +13,8 @@ config = {
     'version': '0.0.1',
     'install_requires': ['nose', 'mock'],
     'packages': ['gdapi'],
-    'scripts': ['download_to_somewhere.py', 'upload_to_root.py'],
+    'scripts': ['script/download_to_somewhere.py',
+                'script/upload_to_root.py'],
     'name': 'gdapi'
 }
 
