@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 import json
-from gdapi.apirequest import APIRequest
+from .apirequest import APIRequest
 
 
 class GDAPI(object):
@@ -75,6 +75,24 @@ class GDAPI(object):
 
         return self._googleapi.resumable_file_upload(
             file_path, body)
+
+    def create_or_update_file(self, parent_id, file_path, title):
+        """Upload new file or update file."""
+        param = {
+            'q': u"trashed=false and title='{0}' and "
+            "'{1}' in parents".format(title, parent_id),
+            'maxResults': 1,  # only query top 1
+        }
+        status_code, files = self._googleapi.api_request(
+            'GET',
+            '/drive/v2/files',
+            params=param,
+        )
+        if not files.get('items', []):
+            # no such file
+            return self.create_file(parent_id, file_path, title)
+        else:
+            return self.update_file(files['items'][0]['id'], file_path)
 
     def download_file(self, file_id, file_path):
         """Download a file.
