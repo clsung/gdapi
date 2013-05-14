@@ -27,8 +27,6 @@ class GDAPI(object):
             'GET',
             '/drive/v2/files/{0}'.format(file_id),
         )
-        if self._is_failed_status_code(status_code):
-            return None
         return drive_file
 
     def create_file(self, parent_id, file_path, title,
@@ -118,7 +116,7 @@ class GDAPI(object):
         if drive_file is None:
             return False
         status_code, resp = self._googleapi.api_request(
-            'GET', drive_file['downloadUrl'])
+            'GET', drive_file['downloadUrl'], stream=True)
         if self._googleapi.error['code'] == 200:
             with open(file_path, 'wb') as f:
                 while True:
