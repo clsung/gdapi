@@ -91,26 +91,14 @@ class APIRequest(object):
         :rtype:
             `tuple`
         """
-        from timeit import default_timer as timer
-        url = self._TOKEN_URL
-        start = timer()
-        resp = requests.request(
+        return self.api_request(
             method,
-            url,
+            self._TOKEN_URL,
             params=params,
             data=data,
             headers=headers,
             verify=verify,
         )
-        self._logger.info(u'%s %r %s %d params %r data %r headers %r', method,
-                          timer() - start, url,
-                          resp.status_code, params, data, headers)
-        if self._is_failed_status_code(resp.status_code):
-            self._logger.debug(u'%s %s failed with response %s',
-                               method, url, resp.content)
-        self._error['code'] = resp.status_code
-        self._error['reason'] = resp.reason
-        return resp.status_code, resp.json()
 
     def _refresh_access_token(self):
         status_code, jobj = self._oauth_api_request(
@@ -177,6 +165,8 @@ class APIRequest(object):
             headers=self._default_headers,
             data=json.dumps(body),
             verify=verify,)
+        self._error['code'] = resp.status_code
+        self._error['reason'] = resp.reason
 
         if self._is_failed_status_code(resp.status_code):
             if self._is_server_side_error_status_code(resp.status_code):
@@ -197,8 +187,6 @@ class APIRequest(object):
                 raise GoogleApiError(
                     code=resp.status_code,
                     message=error.get('message', resp.content))
-            self._error['code'] = resp.status_code
-            self._error['reason'] = resp.reason
             return None
         resumable_url = resp.headers.get('location', None)
         if resumable_url is None:
@@ -208,6 +196,8 @@ class APIRequest(object):
             return None
         with open(local_path, 'rb') as f:
             resp = req.post(resumable_url, data=f)
+        self._error['code'] = resp.status_code
+        self._error['reason'] = resp.reason
         if self._is_failed_status_code(resp.status_code):
             if self._is_server_side_error_status_code(resp.status_code):
                 # raise to retry
@@ -234,8 +224,6 @@ class APIRequest(object):
                 raise GoogleApiError(
                     code=resp.status_code,
                     message=error.get('message', resp.content))
-            self._error['code'] = resp.status_code
-            self._error['reason'] = resp.reason
             return None
         return resp.json()
 
@@ -284,6 +272,8 @@ class APIRequest(object):
                 params={'uploadType': 'resumable'},
                 headers=self._default_headers,
                 verify=verify)
+            self._error['code'] = resp.status_code
+            self._error['reason'] = resp.reason
 
             self._logger.info(u'%d', resp.status_code)
             if self._is_failed_status_code(resp.status_code):
@@ -298,8 +288,6 @@ class APIRequest(object):
                     self._logger.debug(
                         u'Update file failed with response %s',
                         resp.content)
-                    self._error['code'] = resp.status_code
-                    self._error['reason'] = resp.reason
                     return None
                 pass
             else:
@@ -316,6 +304,8 @@ class APIRequest(object):
             with open(local_path, 'rb') as f:
                 resp = req.put(resumable_url,
                                data=f, verify=False)
+            self._error['code'] = resp.status_code
+            self._error['reason'] = resp.reason
             if self._is_failed_status_code(resp.status_code):
                 if self._is_server_side_error_status_code(resp.status_code):
                     # raise to retry
@@ -335,8 +325,6 @@ class APIRequest(object):
                     self._logger.debug(
                         u'Update file failed with response %s',
                         resp.content)
-                    self._error['code'] = resp.status_code
-                    self._error['reason'] = resp.reason
                     return None
             else:
                 break
@@ -418,6 +406,8 @@ class APIRequest(object):
             verify=verify,
             stream=stream,
         )
+        self._error['code'] = resp.status_code
+        self._error['reason'] = resp.reason
         if self._is_server_side_error_status_code(resp.status_code):
             self._logger.debug(resp)
             # raise to retry
@@ -432,8 +422,6 @@ class APIRequest(object):
         if self._is_failed_status_code(resp.status_code):
             self._logger.debug(u'%s %s failed with response %r',
                                method, url, resp.content)
-        self._error['code'] = resp.status_code
-        self._error['reason'] = resp.reason
         if stream:
             return resp.status_code, resp
         try:
