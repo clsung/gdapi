@@ -75,7 +75,8 @@ class GDAPI(object):
             file_path, body)
 
     def create_folder(self, parent_id, title):
-        """Create a folder.
+        """Create a folder. If the same title already exists, just
+        return the id of that folder.
 
         :param parent_id:
             The id of the parent.
@@ -94,6 +95,22 @@ class GDAPI(object):
         """
         self._logger.debug(u"Create folder {0} "
                            "under folder {1}".format(title, parent_id))
+        param = {
+            'q': u"trashed=false and title='{0}' and "
+            "'{1}' in parents and mimeType='{2}'".format(
+                title, parent_id, self._ITEM_TYPE_FOLDER),
+            'maxResults': 1,  # only query top 1
+        }
+        status_code, folders = self._googleapi.api_request(
+            'GET',
+            '/drive/v2/files',
+            params=param,
+        )
+        if not folders.get('items', []):
+            # no such folder
+            pass
+        else:
+            return folders['items'][0]['id']
         body = {
             'title': title,
             'parents': [{'id': parent_id}],  # gd allow multi-parent
