@@ -199,15 +199,14 @@ class APIRequest(object):
         self._logger.debug(u"file {0} with body {1}"
                            "".format(local_path, body))
         req = requests.Session()
-        resp = req.request(
+        resp = self._api_request(
             'POST',
             ''.join([self._API_URL, '/upload/drive/v2/files']),
+            session=req,
             params={'uploadType': 'resumable'},
             headers=self._default_headers,
             data=json.dumps(body),
             verify=verify,)
-        self._error['code'] = resp.status_code
-        self._error['reason'] = resp.reason
 
         if self._is_failed_status_code(resp.status_code):
             if self._is_server_side_error_status_code(resp.status_code):
@@ -231,14 +230,16 @@ class APIRequest(object):
             return None
         resumable_url = resp.headers.get('location', None)
         if resumable_url is None:
-            self._error['code'] = resp.status_code
             self._error['reason'] = 'No resumable url {0}'.format(
                 resp.headers)
             return None
         with open(local_path, 'rb') as f:
-            resp = req.post(resumable_url, data=f)
-        self._error['code'] = resp.status_code
-        self._error['reason'] = resp.reason
+            resp = self._api_request(
+                'POST',
+                resumable_url,
+                session=req,
+                data=f,
+                verify=False)
         if self._is_failed_status_code(resp.status_code):
             if self._is_server_side_error_status_code(resp.status_code):
                 # raise to retry
@@ -307,14 +308,14 @@ class APIRequest(object):
         while True:  # always update latest etag/description
             self._logger.debug(u"Update file with fileId: {0}"
                                "".format(file_id))
-            resp = req.put(
+            resp = self._api_request(
+                'PUT',
                 ''.join(
                     [self._API_URL, '/upload/drive/v2/files/', file_id]),
+                session=req,
                 params={'uploadType': 'resumable'},
                 headers=self._default_headers,
                 verify=verify)
-            self._error['code'] = resp.status_code
-            self._error['reason'] = resp.reason
 
             self._logger.info(u'%d', resp.status_code)
             if self._is_failed_status_code(resp.status_code):
@@ -335,7 +336,6 @@ class APIRequest(object):
                 self._logger.debug(resp.headers)
                 resumable_url = resp.headers.get('location', None)
                 if resumable_url is None:
-                    self._error['code'] = resp.status_code
                     self._error['reason'] = 'No resumable url {0}'.format(
                         resp.headers)
                     return None
@@ -343,10 +343,12 @@ class APIRequest(object):
         # update content
         while True:
             with open(local_path, 'rb') as f:
-                resp = req.put(resumable_url,
-                               data=f, verify=False)
-            self._error['code'] = resp.status_code
-            self._error['reason'] = resp.reason
+                resp = self._api_request(
+                    'PUT',
+                    resumable_url,
+                    session=req,
+                    data=f,
+                    verify=False)
             if self._is_failed_status_code(resp.status_code):
                 if self._is_server_side_error_status_code(resp.status_code):
                     # raise to retry
