@@ -52,12 +52,53 @@ class APIRequest(object):
         return (status_code <= requests.codes.NOT_EXTENDED
                 and status_code >= requests.codes.SERVER_ERROR)
 
+    def _api_request(self,
+                     method,
+                     url,
+                     session=None,
+                     headers=None,
+                     params=None,
+                     data=None,
+                     files=None,
+                     verify=None,
+                     stream=None):
+        """The real request function call"""
+        from timeit import default_timer as timer
+        start = timer()
+        if session is not None:
+            resp = session.request(
+                method,
+                url,
+                params=params,
+                data=data,
+                headers=headers,
+                files=files,
+                verify=verify,
+                stream=stream,
+            )
+        else:
+            resp = requests.request(
+                method,
+                url,
+                params=params,
+                data=data,
+                headers=headers,
+                files=files,
+                verify=verify,
+                stream=stream,
+            )
+        self._logger.info(u'%s %r %s %d headers %s params %s data %s', method,
+                          timer() - start, url,
+                          resp.status_code, headers, params, data)
+        self._error['code'] = resp.status_code
+        self._error['reason'] = resp.reason
+        return resp
+
     @retry(requests.ConnectionError, 10, delay=1)
     def _oauth_api_request(self,
                            method,
                            params=None,
                            data=None,
-                           headers=None,
                            verify=True):
         """Make an OAUTH 2 API call. Used to refresh the access token.
 
@@ -91,14 +132,14 @@ class APIRequest(object):
         :rtype:
             `tuple`
         """
-        return self.api_request(
+        resp = self._api_request(
             method,
             self._TOKEN_URL,
             params=params,
             data=data,
-            headers=headers,
             verify=verify,
         )
+        return resp.status_code, resp.json()
 
     def _refresh_access_token(self):
         status_code, jobj = self._oauth_api_request(
@@ -382,7 +423,6 @@ class APIRequest(object):
         :rtype:
             `tuple`
         """
-        from timeit import default_timer as timer
         from urlparse import urljoin
 
         if resource.startswith('http'):
@@ -395,8 +435,7 @@ class APIRequest(object):
             headers.update(self._default_headers)
         else:
             headers = self._default_headers
-        start = timer()
-        resp = requests.request(
+        resp = self._api_request(
             method,
             url,
             params=params,
@@ -406,19 +445,14 @@ class APIRequest(object):
             verify=verify,
             stream=stream,
         )
-        self._error['code'] = resp.status_code
-        self._error['reason'] = resp.reason
         if self._is_server_side_error_status_code(resp.status_code):
             self._logger.debug(resp)
             # raise to retry
             raise requests.ConnectionError
         if resp.status_code == 401:  # raise to retry
-            self._logger.debug('Need to refresh token')
+            self._logger.debug(u'Need to refresh token')
             if self._refresh_access_token():  # retry on success
                 raise requests.ConnectionError
-        self._logger.info(u'%s %r %s %d params %s data %s', method,
-                          timer() - start, url,
-                          resp.status_code, params, data)
         if self._is_failed_status_code(resp.status_code):
             self._logger.debug(u'%s %s failed with response %r',
                                method, url, resp.content)
