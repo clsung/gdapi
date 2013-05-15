@@ -74,6 +74,40 @@ class GDAPI(object):
         return self._googleapi.resumable_file_upload(
             file_path, body)
 
+    def create_folder(self, parent_id, title):
+        """Create a folder.
+
+        :param parent_id:
+            The id of the parent.
+        :type parent_id:
+            `unicode`
+
+        :param title:
+            The name of the folder to create.
+        :type title:
+            `unicode`.
+
+        :returns:
+            Folder id None if failed.
+        :rtype:
+            `unicode`
+        """
+        self._logger.debug(u"Create folder {0} "
+                           "under folder {1}".format(title, parent_id))
+        body = {
+            'title': title,
+            'parents': [{'id': parent_id}],  # gd allow multi-parent
+            'mimeType': self._ITEM_TYPE_FOLDER,
+        }
+        self._logger.debug(json.dumps(body))
+
+        status_code, drive_file = self._googleapi.api_request(
+            'POST',
+            '/drive/v2/files',
+            data=body,
+        )
+        return drive_file.get('id', None)
+
     def create_or_update_file(self, parent_id, file_path, title):
         """Upload new file or update file."""
         param = {
