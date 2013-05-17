@@ -170,6 +170,66 @@ class APIRequest(object):
         return True
 
     @retry(requests.ConnectionError, 5, delay=1)
+    def multipart_file_upload(self,
+                              local_path,
+                              body,
+                              verify=True):
+        with open(local_path, "rb") as f:
+            file_content = f.read()
+        import base64
+        headers = self._default_headers
+        boundary = 'xiIdabcdyl172dfasyd937845asdf'
+        headers['content-type'] = ('multipart/related; '
+                                   'boundary="{0}"'.format(boundary))
+        parts = []
+        parts.append('--' + boundary)
+        parts.append('Content-Type: application/json')
+        parts.append('')
+        parts.append(json.dumps(body))
+        parts.append('--' + boundary)
+        parts.append('Content-Type: application/octet-stream')
+        parts.append('Content-Transfer-Encoding: base64')
+        parts.append('')
+        parts.append(base64.b64encode(file_content))
+        parts.append('--' + boundary + '--')
+        parts.append('')
+        body = '\r\n'.join(parts)
+
+        resp = self._api_request(
+            'POST',
+            ''.join([self._API_URL, '/upload/drive/v2/files']),
+            params={'uploadType': 'multipart'},
+            headers=headers,
+            data=body,
+            verify=verify,)
+        if self._is_failed_status_code(resp.status_code):
+            if self._is_server_side_error_status_code(resp.status_code):
+                # raise to retry
+                raise requests.ConnectionError
+            elif resp.status_code == 401:  # need to refresh token
+                self._logger.debug('Need to refresh token')
+                if self._refresh_access_token():  # retry on success
+                    raise requests.ConnectionError
+            else:  # need to log 'request exception' to file
+                   # and notify user via UI
+                try:
+                    error = resp.json().get('error', {})
+                except:
+                    print resp.content
+                    raise
+                if error.get('code') == 403 and \
+                   error.get('errors')[0].get('reason') \
+                   in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                    self._logger.debug('Rate limit, retry')
+                    self._logger.debug(error)
+                    raise requests.ConnectionError
+                raise GoogleApiError(
+                    code=resp.status_code,
+                    message=error.get('message', resp.content))
+            return None
+        return resp.json()
+
+    @retry(requests.ConnectionError, 5, delay=1)
     def resumable_file_upload(self,
                               local_path,
                               body,
@@ -223,6 +283,7 @@ class APIRequest(object):
                    error.get('errors')[0].get('reason') \
                    in ['rateLimitExceeded', 'userRateLimitExceeded']:
                     self._logger.debug('Rate limit, retry')
+                    self._logger.debug(error)
                     raise requests.ConnectionError
                 raise GoogleApiError(
                     code=resp.status_code,
@@ -262,6 +323,7 @@ class APIRequest(object):
                    error.get('errors')[0].get('reason') \
                    in ['rateLimitExceeded', 'userRateLimitExceeded']:
                     self._logger.debug('Rate limit, retry')
+                    self._logger.debug(error)
                     raise requests.ConnectionError
                 raise GoogleApiError(
                     code=resp.status_code,
