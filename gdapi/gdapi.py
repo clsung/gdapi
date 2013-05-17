@@ -71,6 +71,7 @@ class GDAPI(object):
             body.update({'description': description})
         self._logger.debug(json.dumps(body))
 
+#        return self._googleapi.multipart_file_upload(
         return self._googleapi.resumable_file_upload(
             file_path, body)
 
@@ -199,6 +200,19 @@ class GDAPI(object):
         return self._googleapi.resumable_file_update(
             file_id, file_path)
 
+    def unshare(self, resource_id):
+        """grab all perm and unshare all, except owner, anyone"""
+        perms = self.query_permission(resource_id)
+        if not perms:
+            return False
+        for perm in perms:
+            if perm['role'] == u'owner' or perm['role'] == u'anyone':
+                continue
+            status_code, _ = self._googleapi.api_request(
+                'DELETE', '/drive/v2/files/{0}/permissions/{1}'.format(
+                    resource_id, perm['id']))
+        return True
+
     def make_user_writer_for_file(self, file_id, user_email):
         """The api for share file/folder"""
         return self._make_user_role_for_file(
@@ -224,6 +238,29 @@ class GDAPI(object):
         )
         self._logger.debug(perm)
         return perm
+
+    def query_permission(self, resource_id):
+        """Returns the permission list item for the Resource.
+
+        :param resource_id:
+            The id of the Resource to query permission.
+        :type resource_id:
+            `unicode`
+
+        :returns:
+            List of permission resource (folder).
+        :rtype:
+            `list`
+        """
+        self._logger.debug('Query permission {0}'.format(resource_id))
+        status_code, perms = self._googleapi.api_request(
+            'GET',
+            '/drive/v2/files/{0}/permissions'.format(resource_id),
+        )
+        if self._is_failed_status_code(status_code):
+            return []
+        self._logger.debug(perms)
+        return perms.get('items', [])
 
 
 if __name__ == '__main__':
