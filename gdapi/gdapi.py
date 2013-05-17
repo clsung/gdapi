@@ -257,10 +257,11 @@ class GDAPI(object):
             'GET',
             '/drive/v2/files/{0}/permissions'.format(resource_id),
         )
-        if self._is_failed_status_code(status_code):
-            return []
         self._logger.debug(perms)
-        return perms.get('items', [])
+        try:
+            return perms.get('items', [])
+        except AttributeError:
+            return []
 
 
 if __name__ == '__main__':
