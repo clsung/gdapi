@@ -50,7 +50,7 @@ class GDAPI(object):
 
         :param description:
             The description of the file.
-        :type md5:
+        :type description:
             `str`
 
         :returns:
@@ -125,6 +125,57 @@ class GDAPI(object):
             data=body,
         )
         return drive_file.get('id', None)
+
+    def create_meta_file(self, parent_id, title,
+                         description=None, mime_type=None):
+        """Create a meta-only file.
+
+        :param parent_id:
+            The id of the parent.
+        :type parent_id:
+            `unicode`
+
+        :param title:
+            The name of the file to create.
+        :type title:
+            `unicode`.
+
+        :param description:
+            The description of the file.
+        :type description:
+            `unicode`
+
+        :param mime_type:
+            The mime_type of the file.
+        :type mime_type:
+            `unicode`
+
+        :returns:
+            Response from the API call.
+        :rtype:
+            `dict`
+        """
+        self._logger.debug(u"Create meta file {0} "
+                           "under folder {1}".format(title, parent_id))
+        if mime_type is None:
+            mime_type = self._ITEM_TYPE_FILE
+        body = {
+            'title': title,
+            'parents': [{'id': parent_id}],  # gd allow multi-parent
+            'mimeType': mime_type
+        }
+        if description is not None:
+            body.update({'description': description})
+        params = {'uploadType': 'media'}
+        self._logger.debug(json.dumps(body))
+
+        status_code, drive_file = self._googleapi.api_request(
+            'POST',
+            '/drive/v2/files',
+            params=params,
+            data=body,
+        )
+        return drive_file
 
     def create_or_update_file(self, parent_id, file_path, title):
         """Upload new file or update file."""
