@@ -53,6 +53,11 @@ class GDAPI(object):
         :type description:
             `str`
 
+        :param mime_type:
+            The mime_type of the file.
+        :type mime_type:
+            `unicode`
+
         :returns:
             Response from the API call.
         :rtype:
@@ -126,8 +131,7 @@ class GDAPI(object):
         )
         return drive_file.get('id', None)
 
-    def create_meta_file(self, parent_id, title,
-                         description=None, mime_type=None):
+    def create_meta_file(self, parent_id, title, description=None):
         """Create a meta-only file.
 
         :param parent_id:
@@ -145,11 +149,6 @@ class GDAPI(object):
         :type description:
             `unicode`
 
-        :param mime_type:
-            The mime_type of the file.
-        :type mime_type:
-            `unicode`
-
         :returns:
             Response from the API call.
         :rtype:
@@ -157,22 +156,17 @@ class GDAPI(object):
         """
         self._logger.debug(u"Create meta file {0} "
                            "under folder {1}".format(title, parent_id))
-        if mime_type is None:
-            mime_type = self._ITEM_TYPE_FILE
         body = {
             'title': title,
             'parents': [{'id': parent_id}],  # gd allow multi-parent
-            'mimeType': mime_type
         }
         if description is not None:
             body.update({'description': description})
-        params = {'uploadType': 'media'}
         self._logger.debug(json.dumps(body))
 
         status_code, drive_file = self._googleapi.api_request(
             'POST',
             '/drive/v2/files',
-            params=params,
             data=body,
         )
         return drive_file
