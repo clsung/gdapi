@@ -251,11 +251,15 @@ class GDAPI(object):
         perms = self.query_permission(resource_id)
         if not perms:
             return False
-        if perm_id and perm_id in perms:
-            status_code, _ = self._googleapi.api_request(
-                'DELETE', '/drive/v2/files/{0}/permissions/{1}'.format(
-                    resource_id, perm_id))
-            return True
+        if perm_id:
+            self._logger.debug(u"Try to remove perm {0} from file {1}"
+                               u"".format(perm_id, resource_id))
+            if perm_id in perms:
+                status_code, _ = self._googleapi.api_request(
+                    'DELETE', '/drive/v2/files/{0}/permissions/{1}'.format(
+                        resource_id, perm_id))
+                return True
+            return False
         for perm in perms:
             if perm['role'] == u'owner' or perm['role'] == u'anyone':
                 continue
