@@ -245,11 +245,17 @@ class GDAPI(object):
         return self._googleapi.resumable_file_update(
             file_id, file_path)
 
-    def unshare(self, resource_id):
-        """grab all perm and unshare all, except owner, anyone"""
+    def unshare(self, resource_id, perm_id=None):
+        """grab all perm and unshare all, except owner, anyone.
+        If perm_id specified, remove that perm."""
         perms = self.query_permission(resource_id)
         if not perms:
             return False
+        if perm_id and perm_id in perms:
+            status_code, _ = self._googleapi.api_request(
+                'DELETE', '/drive/v2/files/{0}/permissions/{1}'.format(
+                    resource_id, perm_id))
+            return True
         for perm in perms:
             if perm['role'] == u'owner' or perm['role'] == u'anyone':
                 continue
