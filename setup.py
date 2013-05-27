@@ -10,7 +10,7 @@ config = {
     'url': 'https://github.com/clsung/gdapi',
     'download_url': 'http://pypi.python.org/pypi/gdapi',
     'author_email': 'clsung@gmail.com',
-    'version': '0.0.6',
+    'version': '0.0.7',
     'install_requires': ['nose', 'mock', 'requests'],
     'packages': ['gdapi'],
     'scripts': ['script/download_to_somewhere.py',
