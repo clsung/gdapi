@@ -319,6 +319,53 @@ class GDAPI(object):
         except AttributeError:
             return []
 
+    def query_title(self, title, isSharedWithMe=False):
+        """Returns the file list item for specified title.
+
+        :param title:
+            Search target.
+        :type title:
+            `unicode`
+
+        :param isSharedWithMe:
+            If search with 'sharedWithMe'.
+        :type isSharedWithMe:
+            `boolean`
+
+        :returns:
+            List of file resource.
+        :rtype:
+            `list`
+        """
+        self._logger.debug('Query title {0}'.format(title))
+        page_token = None
+        result = []
+        while True:
+            try:
+                title = title.replace(u"'", u"\\'")
+                query_string = u"trashed=false and title='{0}'".format(
+                    title)
+                if isSharedWithMe:
+                    query_string = u' '.join([query_string,
+                                              u"and sharedWithMe"])
+                param = {
+                    'q': query_string
+                }
+                if page_token:
+                    param['pageToken'] = page_token
+                status_code, files = self._googleapi.api_request(
+                    'GET',
+                    '/drive/v2/files',
+                    params=param,
+                )
+                result.extend(files['items'])
+                page_token = files.get('nextPageToken')
+                if not page_token:
+                    break
+            except Exception as error:
+                self._logger.exception(error)
+                break
+        return result
 
 if __name__ == '__main__':
     logger = logging.getLogger('gdapi.GDAPI')
