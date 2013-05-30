@@ -189,6 +189,28 @@ class GDAPI(object):
         else:
             return self.update_file(files['items'][0]['id'], file_path)
 
+    def delete_file(self, file_id):
+        """Permanently remove the file.
+
+        :param file_id:
+            The id of the file/folder to be remove permanently.
+        :type file_id:
+            `unicode`
+
+        :returns:
+            If success.
+        :rtype:
+            boolean
+        """
+        self._logger.debug("DELETE the file/folder {0} forever"
+                           "".format(file_id))
+        status_code, drive_file = self._googleapi.api_request(
+            'DELETE',
+            '/drive/v2/files/{0}'.format(file_id))
+        if status_code != 204:  # no content
+            return False
+        return True
+
     def download_file(self, file_id, file_path):
         """Download a file.
 
