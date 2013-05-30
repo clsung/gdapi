@@ -223,6 +223,34 @@ class GDAPI(object):
                     f.write(data)
         return True
 
+    def trash_file(self, file_id):
+        """Trash a file.
+
+        :param file_id:
+            The id of the file to trash.
+        :type file_id:
+            `unicode`
+
+        :returns:
+            Response from the API call.
+        :rtype:
+            `dict`
+        """
+        try:
+            body = {
+                'labels': {'trashed': True},
+            }
+            status_code, drive_file = self._googleapi.api_request(
+                'PATCH',
+                '/drive/v2/files/{0}'.format(file_id),
+                data=body)
+            self._logger.debug("Trash result: {0}".format(
+                drive_file))
+        except Exception as error:
+            self._logger.exception(error)
+            drive_file = None
+        return drive_file
+
     def update_file(self, file_id, file_path):
         """Upload a file.
 
