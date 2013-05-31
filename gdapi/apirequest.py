@@ -386,7 +386,7 @@ class APIRequest(object):
                     raise requests.ConnectionError
                 elif resp.status_code == 401:  # need to refresh token
                     self._logger.debug('Need to refresh token')
-                    if self.refresh_access_token():  # retry on success
+                    if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
                 else:
                     self._logger.debug(
@@ -418,7 +418,7 @@ class APIRequest(object):
                 elif resp.status_code == 401:  # need to refresh token
                     self._logger.debug('Need to refresh token')
                     # TODO add refresh token
-                    if self.refresh_access_token():  # retry on success
+                    if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
                 elif resp.status_code == 404:  # precondition error
                     self._logger.debug(
