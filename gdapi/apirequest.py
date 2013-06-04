@@ -342,7 +342,7 @@ class APIRequest(object):
     @retry(requests.ConnectionError, 5, delay=1)
     def resumable_file_update(self,
                               file_id,
-                              local_path,
+                              fp,
                               headers={},
                               etag=None,
                               verify=True):
@@ -353,10 +353,11 @@ class APIRequest(object):
         :type file_id:
             `unicode`.
 
-        :param local_path:
-            local_path
-        :type local_path:
-            `unicode`.
+        :param fp:
+            file object or file path.
+        :type fp:
+            `file object` or `unicode`.
+
 
         :param headers:
             Request headers.
@@ -426,13 +427,21 @@ class APIRequest(object):
                 break
         # update content
         while True:
-            with open(local_path, 'rb') as f:
+            if isinstance(fp, file):
                 resp = self._api_request(
                     'PUT',
                     resumable_url,
                     session=req,
-                    data=f,
+                    data=fp,
                     verify=False)
+            else:
+                with open(fp, 'rb') as f:
+                    resp = self._api_request(
+                        'PUT',
+                        resumable_url,
+                        session=req,
+                        data=f,
+                        verify=False)
             if self._is_failed_status_code(resp.status_code):
                 if self._is_server_side_error_status_code(resp.status_code):
                     # raise to retry

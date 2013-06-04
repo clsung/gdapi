@@ -204,3 +204,37 @@ class Test_bugfix(unittest.TestCase):
         mock_sess.assert_called_with(
             'POST', 'https://hello.content/object', params=None,
             files=None, headers=None, stream=None, verify=False, data=f)
+
+    @patch.object(requests.Session, 'request')
+    @patch('requests.Response')
+    def test_resumable_file_update(self, mock_resp, mock_sess):
+        mock_resp.status_code = 200
+        mock_resp.headers = {'location': 'https://hello.content/stream2'}
+        mock_sess.return_value = mock_resp
+
+        with patch('gdapi.apirequest.open',
+                   mock_open(read_data='bibble'), create=True) as m:
+            fd, temp_path = tempfile.mkstemp()
+            os.close(fd)  # we use temp_path only
+            self.ar.resumable_file_update('id_b', temp_path)
+            m.assert_called_once_with(temp_path, 'rb')
+            mock_sess.assert_called_with(
+                'PUT', 'https://hello.content/stream2', params=None,
+                files=None, headers=None, stream=None, verify=False, data=m())
+
+    @patch.object(requests.Session, 'request')
+    @patch('requests.Response')
+    def test_resumable_file_update_with_file_object(self,
+                                                    mock_resp, mock_sess):
+        mock_resp.status_code = 200
+        mock_resp.headers = {'location': 'https://hello.content/object2'}
+        mock_sess.return_value = mock_resp
+
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, "File content is here")
+        os.close(fd)  # we use temp_path only
+        with open(temp_path, 'rb') as f:
+            self.ar.resumable_file_update('id_c', f)
+        mock_sess.assert_called_with(
+            'PUT', 'https://hello.content/object2', params=None,
+            files=None, headers=None, stream=None, verify=False, data=f)
