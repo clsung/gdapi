@@ -5,9 +5,10 @@ from mock import patch
 # mock the retry decorator before any module loads it
 patch('gdapi.utils.retry', lambda x, y, delay: lambda z: z).start()
 from gdapi.apirequest import APIRequest
+from gdapi.errors import GoogleApiError
 import requests
 import tempfile
-from testfixtures import compare
+from testfixtures import compare, ShouldRaise
 import httpretty
 import json
 
@@ -141,3 +142,23 @@ class Test_bugfix(unittest.TestCase):
             'PUT', 'https://www.googleapis.com//upload/drive/v2/files/id_b',
             files=None, stream=None, verify=True, headers=golden_header,
             params={'uploadType': 'resumable'}, data=None)
+
+    @patch.object(requests.Session, 'request', autospec=True)
+    @patch('requests.Response')
+    def test_resumable_file_update_raise_etag(self, mock_resp, sess):
+        mock_resp.status_code = 412
+        mock_resp.content = "Precondition error"
+        sess.return_value = mock_resp
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, json.dumps({
+            'access_token': 'ACCESS',
+            'refresh_token': 'REFRESH',
+            'client_id': 'ID',
+            'client_secret': 'SECRET',
+        }))
+        os.close(fd)  # we use temp_path only
+        ar = APIRequest(temp_path)
+
+        with ShouldRaise(GoogleApiError(code=412,
+                                        message='Precondition error')):
+            ar.resumable_file_update('id_b', temp_path, etag="hi")

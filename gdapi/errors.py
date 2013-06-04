@@ -4,11 +4,11 @@ import sys
 
 class GoogleApiError(Exception):
     """An exception thrown when a Drive API return non-2xx status code"""
-    default_message = 'code: %(code)s , message: %(message)s'
+    default_message = 'code: %(_code)s , message: %(_message)s'
 
     def __init__(self, code=None, message=None):
-        self.code = code
-        self.message = message
+        self._code = code
+        self._message = message
 
     def __str__(self):
         keys = {}
