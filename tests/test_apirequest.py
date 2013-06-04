@@ -11,6 +11,7 @@ import tempfile
 from testfixtures import compare, ShouldRaise
 import httpretty
 import json
+from mock import mock_open
 
 
 class Test_cred_functions(unittest.TestCase):
@@ -107,10 +108,6 @@ class Test_api_functions(unittest.TestCase):
 class Test_bugfix(unittest.TestCase):
     """Test function unit from given issue"""
     def setUp(self):
-        pass
-
-    @patch.object(requests.Session, 'request')
-    def test_resumable_file_update_header(self, sess):
         fd, temp_path = tempfile.mkstemp()
         os.write(fd, json.dumps({
             'access_token': 'ACCESS',
@@ -119,8 +116,15 @@ class Test_bugfix(unittest.TestCase):
             'client_secret': 'SECRET',
         }))
         os.close(fd)  # we use temp_path only
-        ar = APIRequest(temp_path)
-        ar.resumable_file_update('id_a', temp_path)
+        self.ar = APIRequest(temp_path)
+        pass
+
+    @patch.object(requests.Session, 'request')
+    def test_resumable_file_update_header(self, sess):
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, "File content is here")
+        os.close(fd)  # we use temp_path only
+        self.ar.resumable_file_update('id_a', temp_path)
 
         golden_header = {
             'content-type': 'application/json',
@@ -131,7 +135,7 @@ class Test_bugfix(unittest.TestCase):
             files=None, stream=None, verify=True, headers=golden_header,
             params={'uploadType': 'resumable'}, data=None)
 
-        ar.resumable_file_update('id_b', temp_path, etag="hi")
+        self.ar.resumable_file_update('id_b', temp_path, etag="hi")
 
         golden_header = {
             'content-type': 'application/json',
@@ -149,16 +153,32 @@ class Test_bugfix(unittest.TestCase):
         mock_resp.status_code = 412
         mock_resp.content = "Precondition error"
         sess.return_value = mock_resp
-        fd, temp_path = tempfile.mkstemp()
-        os.write(fd, json.dumps({
-            'access_token': 'ACCESS',
-            'refresh_token': 'REFRESH',
-            'client_id': 'ID',
-            'client_secret': 'SECRET',
-        }))
-        os.close(fd)  # we use temp_path only
-        ar = APIRequest(temp_path)
 
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, "File content is here")
+        os.close(fd)  # we use temp_path only
         with ShouldRaise(GoogleApiError(code=412,
                                         message='Precondition error')):
-            ar.resumable_file_update('id_b', temp_path, etag="hi")
+            self.ar.resumable_file_update('id_b', temp_path, etag="hi")
+
+    @patch.object(requests.Session, 'request')
+    @patch('requests.Response')
+    def test_resumable_file_upload(self, mock_resp, mock_sess):
+        mock_resp.status_code = 200
+        mock_resp.headers = {'location': 'https://hello.content/stream'}
+        mock_sess.return_value = mock_resp
+
+        body = {
+            'title': "FileName",
+            'parents': [{'id': 'root'}],
+            'mimeType': 'application/octet-stream',
+        }
+        with patch('gdapi.apirequest.open',
+                   mock_open(read_data='bibble'), create=True) as m:
+            fd, temp_path = tempfile.mkstemp()
+            os.close(fd)  # we use temp_path only
+            self.ar.resumable_file_upload(temp_path, body)
+            m.assert_called_once_with(temp_path, 'rb')
+            mock_sess.assert_called_with(
+                'POST', 'https://hello.content/stream', params=None,
+                files=None, headers=None, stream=None, verify=False, data=m())
