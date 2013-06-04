@@ -231,15 +231,15 @@ class APIRequest(object):
 
     @retry(requests.ConnectionError, 5, delay=1)
     def resumable_file_upload(self,
-                              local_path,
+                              fp,
                               body,
                               verify=True):
         """Create a file.
 
-        :param local_path:
-            local_path
-        :type local_path:
-            `unicode`.
+        :param fp:
+            file object or file path.
+        :type fp:
+            `file object` or `unicode`.
 
         :param headers:
             Request headers.
@@ -257,7 +257,7 @@ class APIRequest(object):
             `dict`
         """
         self._logger.debug(u"file {0} with body {1}"
-                           "".format(local_path, body))
+                           "".format(fp, body))
         req = requests.Session()
         resp = self._api_request(
             'POST',
@@ -294,13 +294,21 @@ class APIRequest(object):
             self._error['reason'] = 'No resumable url {0}'.format(
                 resp.headers)
             return None
-        with open(local_path, 'rb') as f:
+        if isinstance(fp, file):
             resp = self._api_request(
                 'POST',
                 resumable_url,
                 session=req,
-                data=f,
+                data=fp,
                 verify=False)
+        else:
+            with open(fp, 'rb') as f:
+                resp = self._api_request(
+                    'POST',
+                    resumable_url,
+                    session=req,
+                    data=f,
+                    verify=False)
         if self._is_failed_status_code(resp.status_code):
             if self._is_server_side_error_status_code(resp.status_code):
                 # raise to retry

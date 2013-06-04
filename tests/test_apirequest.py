@@ -182,3 +182,25 @@ class Test_bugfix(unittest.TestCase):
             mock_sess.assert_called_with(
                 'POST', 'https://hello.content/stream', params=None,
                 files=None, headers=None, stream=None, verify=False, data=m())
+
+    @patch.object(requests.Session, 'request')
+    @patch('requests.Response')
+    def test_resumable_file_upload_with_file_object(self,
+                                                    mock_resp, mock_sess):
+        mock_resp.status_code = 200
+        mock_resp.headers = {'location': 'https://hello.content/object'}
+        mock_sess.return_value = mock_resp
+
+        body = {
+            'title': "FileName",
+            'parents': [{'id': 'root'}],
+            'mimeType': 'application/octet-stream',
+        }
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, "File content is here")
+        os.close(fd)  # we use temp_path only
+        with open(temp_path, 'rb') as f:
+            self.ar.resumable_file_upload(f, body)
+        mock_sess.assert_called_with(
+            'POST', 'https://hello.content/object', params=None,
+            files=None, headers=None, stream=None, verify=False, data=f)
