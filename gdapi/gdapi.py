@@ -171,7 +171,7 @@ class GDAPI(object):
         )
         return drive_file
 
-    def create_or_update_file(self, parent_id, file_path, title):
+    def create_or_update_file(self, parent_id, file_path, title, etag=None):
         """Upload new file or update file."""
         param = {
             'q': u"trashed=false and title='{0}' and "
@@ -187,7 +187,7 @@ class GDAPI(object):
             # no such file
             return self.create_file(parent_id, file_path, title)
         else:
-            return self.update_file(files['items'][0]['id'], file_path)
+            return self.update_file(files['items'][0]['id'], file_path, etag)
 
     def delete_file(self, file_id):
         """Permanently remove the file.
@@ -225,15 +225,15 @@ class GDAPI(object):
             `unicode`.
 
         :returns:
-            If the operation success.
+            The file meta, or None if failed.
         :rtype:
-            `boolean`
+            `dict`
         """
         self._logger.debug(u"Download file {0} to {1}".format(
             file_id, file_path))
         drive_file = self.get_file_meta(file_id)
         if drive_file is None:
-            return False
+            return None
         status_code, resp = self._googleapi.api_request(
             'GET', drive_file['downloadUrl'], stream=True)
         if self._googleapi.error['code'] == 200:
@@ -243,7 +243,7 @@ class GDAPI(object):
                     if not data:
                         break
                     f.write(data)
-        return True
+        return drive_file
 
     def trash_file(self, file_id):
         """Trash a file.
@@ -273,7 +273,7 @@ class GDAPI(object):
             drive_file = None
         return drive_file
 
-    def update_file(self, file_id, file_path):
+    def update_file(self, file_id, file_path, etag=None):
         """Upload a file.
 
         :param file_id:
@@ -286,14 +286,20 @@ class GDAPI(object):
         :type file_path:
             `unicode`.
 
+        :param etag:
+            (Optional) to be append to If-Match.
+        :type etag:
+            `unicode`
+
         :returns:
             Response from the API call.
         :rtype:
             `dict`
+        :raises: GoogleApiError.
         """
         self._logger.debug(u"Update file {0}".format(file_id))
         return self._googleapi.resumable_file_update(
-            file_id, file_path)
+            file_id, file_path, etag=etag)
 
     def unshare(self, resource_id, perm_id=None):
         """grab all perm and unshare all, except owner, anyone.

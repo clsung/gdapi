@@ -336,6 +336,7 @@ class APIRequest(object):
                               file_id,
                               local_path,
                               headers=None,
+                              etag=None,
                               verify=True):
         """Create a file.
 
@@ -363,6 +364,7 @@ class APIRequest(object):
             Response from the API call.
         :rtype:
             `dict`
+        :raises: GoogleApiError.
         """
         # we should update file meta first, then the content
         req = requests.Session()
@@ -370,13 +372,16 @@ class APIRequest(object):
         while True:  # always update latest etag/description
             self._logger.debug(u"Update file with fileId: {0}"
                                "".format(file_id))
+            headers = {}
+            if etag:
+                headers.update({'If-Match': etag})
             resp = self._api_request(
                 'PUT',
                 ''.join(
                     [self._API_URL, '/upload/drive/v2/files/', file_id]),
                 session=req,
                 params={'uploadType': 'resumable'},
-                headers=self._default_headers,
+                headers=headers,
                 verify=verify)
 
             self._logger.info(u'%d', resp.status_code)
@@ -388,6 +393,10 @@ class APIRequest(object):
                     self._logger.debug('Need to refresh token')
                     if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
+                elif resp.status_code == 412:  # precondition error
+                    raise GoogleApiError(
+                        code=resp.status_code, message=resp.content
+                    )
                 else:
                     self._logger.debug(
                         u'Update file failed with response %s',
@@ -417,7 +426,6 @@ class APIRequest(object):
                     raise requests.ConnectionError
                 elif resp.status_code == 401:  # need to refresh token
                     self._logger.debug('Need to refresh token')
-                    # TODO add refresh token
                     if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
                 elif resp.status_code == 404:  # precondition error
@@ -426,6 +434,10 @@ class APIRequest(object):
                         'https://developers.google.com/drive/'
                         'manage-uploads#best-practices')
                     raise requests.ConnectionError
+                elif resp.status_code == 412:  # precondition error
+                    raise GoogleApiError(
+                        code=resp.status_code, message=resp.content
+                    )
                 else:
                     self._logger.debug(
                         u'Update file failed with response %s',
