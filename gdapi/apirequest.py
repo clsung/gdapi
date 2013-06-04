@@ -335,7 +335,7 @@ class APIRequest(object):
     def resumable_file_update(self,
                               file_id,
                               local_path,
-                              headers=None,
+                              headers={},
                               etag=None,
                               verify=True):
         """Create a file.
@@ -372,7 +372,10 @@ class APIRequest(object):
         while True:  # always update latest etag/description
             self._logger.debug(u"Update file with fileId: {0}"
                                "".format(file_id))
-            headers = {}
+            if headers:
+                headers.update(self._default_headers)
+            else:
+                headers = self._default_headers
             if etag:
                 headers.update({'If-Match': etag})
             resp = self._api_request(
@@ -393,6 +396,8 @@ class APIRequest(object):
                     self._logger.debug('Need to refresh token')
                     if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
+                    else:
+                        return None
                 elif resp.status_code == 412:  # precondition error
                     raise GoogleApiError(
                         code=resp.status_code, message=resp.content
@@ -428,6 +433,8 @@ class APIRequest(object):
                     self._logger.debug('Need to refresh token')
                     if self._refresh_access_token():  # retry on success
                         raise requests.ConnectionError
+                    else:
+                        return None
                 elif resp.status_code == 404:  # precondition error
                     self._logger.debug(
                         '404, Google Best Practise says retry:'

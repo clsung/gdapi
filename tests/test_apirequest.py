@@ -101,3 +101,43 @@ class Test_api_functions(unittest.TestCase):
         resp = self.ar._api_request('GET', url, session=session)
         compare(404, resp.status_code)
         compare('Not Found', resp.content)
+
+
+class Test_bugfix(unittest.TestCase):
+    """Test function unit from given issue"""
+    def setUp(self):
+        pass
+
+    @patch.object(requests.Session, 'request')
+    def test_resumable_file_update_header(self, sess):
+        fd, temp_path = tempfile.mkstemp()
+        os.write(fd, json.dumps({
+            'access_token': 'ACCESS',
+            'refresh_token': 'REFRESH',
+            'client_id': 'ID',
+            'client_secret': 'SECRET',
+        }))
+        os.close(fd)  # we use temp_path only
+        ar = APIRequest(temp_path)
+        ar.resumable_file_update('id_a', temp_path)
+
+        golden_header = {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ACCESS'
+        }
+        sess.assert_called_with(
+            'PUT', 'https://www.googleapis.com//upload/drive/v2/files/id_a',
+            files=None, stream=None, verify=True, headers=golden_header,
+            params={'uploadType': 'resumable'}, data=None)
+
+        ar.resumable_file_update('id_b', temp_path, etag="hi")
+
+        golden_header = {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ACCESS',
+            'If-Match': 'hi'
+        }
+        sess.assert_called_with(
+            'PUT', 'https://www.googleapis.com//upload/drive/v2/files/id_b',
+            files=None, stream=None, verify=True, headers=golden_header,
+            params={'uploadType': 'resumable'}, data=None)
