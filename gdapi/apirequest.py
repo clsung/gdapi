@@ -3,8 +3,8 @@ import os
 import logging
 import requests
 import json
-from utils import retry
-from errors import GoogleApiError
+from .utils import retry
+from .errors import GoogleApiError
 
 
 class APIRequest(object):
