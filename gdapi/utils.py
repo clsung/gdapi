@@ -32,7 +32,7 @@ def retry(ExceptionToHandle, tries, delay=3, backoff=2, logger_name=None):
             while mtries >= 1:
                 try:
                     return f(*args, **kwargs)  # first attempt
-                except ExceptionToHandle, e:
+                except ExceptionToHandle as e:
                     import traceback
                     if 'socket.gaierror' in repr(e):  # no network
                         sleep(9.5 + randint(0, 1000) / 1000)
