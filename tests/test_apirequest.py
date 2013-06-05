@@ -31,11 +31,11 @@ class Test_cred_functions(unittest.TestCase):
 
     def test_read_cred(self):
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, json.dumps({
-            'access_token': 'ACCESS',
-            'refresh_token': 'REFRESH',
-        }))
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            json.dump({
+                'access_token': 'ACCESS',
+                'refresh_token': 'REFRESH',
+            }, f)
         ar = APIRequest(temp_path)
         compare('ACCESS', ar._credential['access_token'])
         compare('REFRESH', ar._credential['refresh_token'])
@@ -49,7 +49,7 @@ class Test_cred_functions(unittest.TestCase):
         ar._credential['access_token'] = '12345'
         ar._credential['client_id'] = '54321'
         ar._save_credential_file()
-        with open(temp_path, 'rb') as f:
+        with open(temp_path, 'r') as f:
             jobj = json.load(f)
         compare(jobj, ar._credential)
         pass
@@ -95,35 +95,36 @@ class Test_api_functions(unittest.TestCase):
             ])
         resp = self.ar._api_request('GET', url)
         compare(200, resp.status_code)
-        compare('Hello World', resp.content)
+        compare(b'Hello World', resp.content)
         resp = self.ar._api_request('GET', url)
         compare(500, resp.status_code)
-        compare('Internal Server buzz', resp.content)
+        compare(b'Internal Server buzz', resp.content)
         session = requests.Session()
         resp = self.ar._api_request('GET', url, session=session)
         compare(404, resp.status_code)
-        compare('Not Found', resp.content)
+        compare(b'Not Found', resp.content)
 
 
 class Test_bugfix(unittest.TestCase):
     """Test function unit from given issue"""
     def setUp(self):
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, json.dumps({
-            'access_token': 'ACCESS',
-            'refresh_token': 'REFRESH',
-            'client_id': 'ID',
-            'client_secret': 'SECRET',
-        }))
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            json.dump({
+                'access_token': 'ACCESS',
+                'refresh_token': 'REFRESH',
+                'client_id': 'ID',
+                'client_secret': 'SECRET',
+            }, f)
         self.ar = APIRequest(temp_path)
         pass
 
     @patch.object(requests.Session, 'request')
     def test_resumable_file_update_header(self, sess):
+        sess.return_value.status_code = 404  # fail early
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, "File content is here")
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            f.write("File content is here")
         self.ar.resumable_file_update('id_a', temp_path)
 
         golden_header = {
@@ -155,8 +156,8 @@ class Test_bugfix(unittest.TestCase):
         sess.return_value = mock_resp
 
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, "File content is here")
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            f.write("File content is here")
         with ShouldRaise(GoogleApiError(code=412,
                                         message='Precondition error')):
             self.ar.resumable_file_update('id_b', temp_path, etag="hi")
@@ -197,8 +198,8 @@ class Test_bugfix(unittest.TestCase):
             'mimeType': 'application/octet-stream',
         }
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, "File content is here")
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            f.write("File content is here")
         with open(temp_path, 'rb') as f:
             self.ar.resumable_file_upload(f, body)
         mock_sess.assert_called_with(
@@ -231,8 +232,8 @@ class Test_bugfix(unittest.TestCase):
         mock_sess.return_value = mock_resp
 
         fd, temp_path = tempfile.mkstemp()
-        os.write(fd, "File content is here")
-        os.close(fd)  # we use temp_path only
+        with os.fdopen(fd, 'w') as f:
+            f.write("File content is here")
         with open(temp_path, 'rb') as f:
             self.ar.resumable_file_update('id_c', f)
         mock_sess.assert_called_with(

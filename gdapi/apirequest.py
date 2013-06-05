@@ -34,11 +34,11 @@ class APIRequest(object):
 
     def _read_credential_file(self):
         if os.path.isfile(self._credential_path):
-            with open(self._credential_path, 'rb') as fin:
+            with open(self._credential_path, 'r') as fin:
                 self._credential.update(json.load(fin))
 
     def _save_credential_file(self):
-        with open(self._credential_path, 'wb') as f:
+        with open(self._credential_path, 'w') as f:
             json.dump(self._credential, f, indent=2)
 
     def _is_failed_status_code(self, status_code):
@@ -293,7 +293,7 @@ class APIRequest(object):
             self._error['reason'] = 'No resumable url {0}'.format(
                 resp.headers)
             return None
-        if isinstance(fp, file):
+        if hasattr(fp, 'read'):
             resp = self._api_request(
                 'POST',
                 resumable_url,
@@ -426,7 +426,7 @@ class APIRequest(object):
                 break
         # update content
         while True:
-            if isinstance(fp, file):
+            if hasattr(fp, 'read'):
                 resp = self._api_request(
                     'PUT',
                     resumable_url,
