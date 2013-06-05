@@ -215,8 +215,7 @@ class APIRequest(object):
                 try:
                     error = resp.json().get('error', {})
                 except:
-                    print resp.content
-                    raise
+                    pass
                 if error.get('code') == 403 and \
                    error.get('errors')[0].get('reason') \
                    in ['rateLimitExceeded', 'userRateLimitExceeded']:
