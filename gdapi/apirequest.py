@@ -343,6 +343,7 @@ class APIRequest(object):
                               file_id,
                               fp,
                               headers={},
+                              body=None,
                               etag=None,
                               verify=True):
         """Create a file.
@@ -357,10 +358,14 @@ class APIRequest(object):
         :type fp:
             `file object` or `unicode`.
 
-
         :param headers:
             Request headers.
         :type headers:
+            `dict`.
+
+        :param body:
+            Request body.
+        :type body:
             `dict`.
 
         :param etag:
@@ -386,6 +391,10 @@ class APIRequest(object):
                 headers = self._default_headers
             if etag:
                 headers.update({'If-Match': etag})
+            if body is not None:
+                data = json.dumps(body)
+            else:
+                data = None
             resp = self._api_request(
                 'PUT',
                 ''.join(
@@ -393,6 +402,7 @@ class APIRequest(object):
                 session=req,
                 params={'uploadType': 'resumable'},
                 headers=headers,
+                data=data,
                 verify=verify)
 
             self._logger.info(u'%d', resp.status_code)

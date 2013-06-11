@@ -171,7 +171,8 @@ class GDAPI(object):
         )
         return drive_file
 
-    def create_or_update_file(self, parent_id, file_path, title, etag=None):
+    def create_or_update_file(self, parent_id, file_path, title,
+                              description=None, etag=None):
         """Upload new file or update file."""
         param = {
             'q': u"trashed=false and title='{0}' and "
@@ -185,9 +186,10 @@ class GDAPI(object):
         )
         if not files.get('items', []):
             # no such file
-            return self.create_file(parent_id, file_path, title)
+            return self.create_file(parent_id, file_path, title, description)
         else:
-            return self.update_file(files['items'][0]['id'], file_path, etag)
+            return self.update_file(files['items'][0]['id'], file_path,
+                                    description, etag)
 
     def delete_file(self, file_id):
         """Permanently remove the file.
@@ -273,7 +275,7 @@ class GDAPI(object):
             drive_file = None
         return drive_file
 
-    def update_file(self, file_id, file_path, etag=None):
+    def update_file(self, file_id, file_path, description=None, etag=None):
         """Upload a file.
 
         :param file_id:
@@ -285,6 +287,11 @@ class GDAPI(object):
             file_path
         :type file_path:
             `unicode`.
+
+        :param description:
+            (Optional) The description of the file.
+        :type description:
+            `unicode`
 
         :param etag:
             (Optional) to be append to If-Match.
@@ -298,8 +305,12 @@ class GDAPI(object):
         :raises: GoogleApiError.
         """
         self._logger.debug(u"Update file {0}".format(file_id))
+        if description:
+            body = {'description': description}
+        else:
+            body = None
         return self._googleapi.resumable_file_update(
-            file_id, file_path, etag=etag)
+            file_id, file_path, body=body, etag=etag)
 
     def unshare(self, resource_id, perm_id=None):
         """grab all perm and unshare all, except owner, anyone.
