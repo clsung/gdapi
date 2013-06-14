@@ -336,28 +336,48 @@ class GDAPI(object):
                     resource_id, perm['id']))
         return True
 
+    def make_domain_writer_for_file(self, file_id, domain, with_link=True):
+        """The api for share file/folder with domain"""
+        return self._make_role_for_file(
+            file_id, 'domain', domain, 'writer')
+
+    def make_domain_reader_for_file(self, file_id, domain, with_link=True):
+        """The api for share file/folder with domain"""
+        return self._make_role_for_file(
+            file_id, 'domain', domain, 'reader', with_link)
+
+    def make_public_reader_for_file(self, file_id, with_link=True):
+        """The api for share file/folder public"""
+        return self._make_role_for_file(
+            file_id, 'anyone', 'N/A', 'reader', with_link)
+
     def make_user_writer_for_file(self, file_id, user_email):
         """The api for share file/folder"""
-        return self._make_user_role_for_file(
-            file_id, user_email, 'writer')
+        return self._make_role_for_file(
+            file_id, 'user', user_email, 'writer')
 
     def make_user_reader_for_file(self, file_id, user_email):
         """The api for share file/folder"""
-        return self._make_user_role_for_file(
-            file_id, user_email, 'reader')
+        return self._make_role_for_file(
+            file_id, 'user', user_email, 'reader')
 
-    def _make_user_role_for_file(self, file_id, user_email, role):
-        self._logger.debug(u"Make file {0} {2} by email {1}"
-                           "".format(file_id, user_email, role))
+    def _make_role_for_file(self, file_id,
+                            perm_type, value, role,
+                            with_link=False):
+        self._logger.debug(u"Make file {0} {3} {2} by value {1}"
+                           "".format(file_id, value, role, perm_type))
+        data={
+            'role': role,
+            'type': perm_type,
+            'value': value
+        }
+        if perm_type in ['domain', 'anyone']:
+            data.update({'withLink': with_link})
         status_code, perm = self._googleapi.api_request(
             'POST',
             '/drive/v2/files/{0}/permissions'.format(file_id),
             params={'sendNotificationEmails': 'false'},
-            data={
-                'role': role,
-                'type': 'user',
-                'value': user_email
-            },
+            data=data,
         )
         self._logger.debug(perm)
         return perm
