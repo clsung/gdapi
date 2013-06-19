@@ -370,7 +370,7 @@ class GDAPI(object):
                             with_link=False):
         self._logger.debug(u"Make file {0} {3} {2} by value {1}"
                            "".format(file_id, value, role, perm_type))
-        data={
+        data = {
             'role': role,
             'type': perm_type,
             'value': value
