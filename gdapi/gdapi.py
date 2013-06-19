@@ -236,6 +236,10 @@ class GDAPI(object):
         drive_file = self.get_file_meta(file_id)
         if drive_file is None:
             return None
+        if drive_file.get('downloadUrl', None) is None:
+            self._logger.error("File has no download url: {0}"
+                               "".format(drive_file))
+            return None
         status_code, resp = self._googleapi.api_request(
             'GET', drive_file['downloadUrl'], stream=True)
         if self._googleapi.error['code'] == 200:
