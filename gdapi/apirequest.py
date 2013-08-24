@@ -3,6 +3,7 @@ import os
 import logging
 import requests
 import json
+from urlparse import urljoin
 from .utils import retry
 from .errors import GoogleApiError
 
@@ -197,7 +198,7 @@ class APIRequest(object):
 
         resp = self._api_request(
             'POST',
-            ''.join([self._API_URL, '/upload/drive/v2/files']),
+            urljoin(self._API_URL, '/upload/drive/v2/files'),
             params={'uploadType': 'multipart'},
             headers=headers,
             data=body,
@@ -260,7 +261,7 @@ class APIRequest(object):
         req = requests.Session()
         resp = self._api_request(
             'POST',
-            ''.join([self._API_URL, '/upload/drive/v2/files']),
+            urljoin(self._API_URL, '/upload/drive/v2/files'),
             session=req,
             params={'uploadType': 'resumable'},
             headers=self._default_headers,
@@ -339,6 +340,121 @@ class APIRequest(object):
         return resp.json()
 
     @retry(requests.ConnectionError, 5, delay=1)
+    def simple_media_upload(self,
+                            local_path,
+                            headers={'content-type': 'application/json'},
+                            body=None,
+                            file_id=None):
+        """Create a file.
+
+        :param local_path:
+            local_path
+        :type local_path:
+            `unicode`.
+
+        :param headers:
+            Request headers.
+        :type headers:
+            `dict`.
+
+        :param body:
+            Request body.
+        :type body:
+            `dict`.
+
+        :param file_id:
+            If no file_id, "POST", "PUT" otherwise.
+        :type file_id:
+            `unicode`.
+
+        :returns:
+            Response from the API call.
+        :rtype:
+            `dict`
+        """
+        self._logger.debug(u"file {0} with headers {1} body {2}"
+                           "".format(local_path, headers, body))
+        req = requests.Session()
+        req.headers.update(self._default_headers)
+        if file_id is None:
+            method = 'POST'
+            url = urljoin(self._API_URL, '/upload/drive/v2/files')
+        else:
+            method = 'PUT'
+            url = urljoin(self._API_URL,
+                          '/upload/drive/v2/files/{0}'.format(file_id))
+        with open(local_path, 'rb') as f:
+            resp = req.request(
+                method,
+                url,
+                params={'uploadType': 'media'},
+                headers=headers,
+                data=f,
+                verify=False,)
+            self._logger.debug("{0} {1} {2}".format(
+                resp.status_code, resp.headers, resp.content))
+            self._logger.debug("Request header: {0}".format(
+                resp.request.headers))
+
+        self._logger.debug(resp.status_code)
+        if self._is_failed_status_code(resp.status_code):
+            if self._is_server_side_error_status_code(resp.status_code):
+                # raise to retry
+                raise requests.ConnectionError
+            elif resp.status_code == 401:  # need to refresh token
+                self._logger.debug('Need to refresh token')
+                if self._refresh_access_token():  # retry on success
+                    raise requests.ConnectionError
+            else:  # need to log 'request exception' to file
+                   # and notify user via UI
+                error = resp.json().get('error', {})
+                if error.get('code') == 403 and \
+                   error.get('errors')[0].get('reason') \
+                   in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                    self._logger.debug('Rate limit, retry')
+                    raise requests.ConnectionError
+                raise GoogleApiError(code=resp.status_code,
+                                     message=error.get('message', resp.content))
+            self._error['code'] = resp.status_code
+            self._error['reason'] = resp.reason
+            return None
+        drive_file = resp.json()
+        if body:
+            self._logger.debug(u"Update file {0} with {1}".format(
+                drive_file['id'], json.dumps(body)))
+            req.headers.update(self._default_headers)
+            resp = req.put(
+                urljoin(self._API_URL, '/drive/v2/files/{0}'.format(
+                    drive_file['id'])),
+                headers=headers,
+                data=json.dumps(body),
+                verify=False,)
+            if self._is_failed_status_code(resp.status_code):
+                if self._is_server_side_error_status_code(resp.status_code):
+                    # raise to retry
+                    raise requests.ConnectionError
+                elif resp.status_code == 401:  # need to refresh token
+                    self._logger.debug('Need to refresh token')
+                    if self._refresh_access_token():  # retry on success
+                        raise requests.ConnectionError
+                else:  # need to log 'request exception' to file
+                    # and notify user via UI
+                    error = resp.json().get('error', {})
+                    if error.get('code') == 403 and \
+                    error.get('errors')[0].get('reason') \
+                    in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                        self._logger.debug('Rate limit, retry')
+                        raise requests.ConnectionError
+                    raise GoogleApiError(code=resp.status_code,
+                                        message=error.get('message', resp.content))
+                self._error['code'] = resp.status_code
+                self._error['reason'] = resp.reason
+                return None
+            drive_file = resp.json()
+        self._logger.debug(drive_file)
+        return drive_file
+
+    @retry(requests.ConnectionError, 5, delay=1)
     def resumable_file_update(self,
                               file_id,
                               fp,
@@ -397,8 +513,8 @@ class APIRequest(object):
                 data = None
             resp = self._api_request(
                 'PUT',
-                ''.join(
-                    [self._API_URL, '/upload/drive/v2/files/', file_id]),
+                urljoin(self._API_URL, '/upload/drive/v2/files/{0}'.format(
+                    file_id)),
                 session=req,
                 params={'uploadType': 'resumable'},
                 headers=headers,
@@ -532,7 +648,6 @@ class APIRequest(object):
         :rtype:
             `tuple`
         """
-        from urlparse import urljoin
 
         if resource.startswith('http'):
             url = resource

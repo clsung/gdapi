@@ -132,7 +132,7 @@ class Test_bugfix(unittest.TestCase):
             'Authorization': 'Bearer ACCESS'
         }
         sess.assert_called_with(
-            'PUT', 'https://www.googleapis.com//upload/drive/v2/files/id_a',
+            'PUT', 'https://www.googleapis.com/upload/drive/v2/files/id_a',
             files=None, stream=None, verify=True, headers=golden_header,
             params={'uploadType': 'resumable'}, data=None)
 
@@ -144,7 +144,7 @@ class Test_bugfix(unittest.TestCase):
             'If-Match': 'hi'
         }
         sess.assert_called_with(
-            'PUT', 'https://www.googleapis.com//upload/drive/v2/files/id_b',
+            'PUT', 'https://www.googleapis.com/upload/drive/v2/files/id_b',
             files=None, stream=None, verify=True, headers=golden_header,
             params={'uploadType': 'resumable'}, data=None)
 
@@ -183,6 +183,34 @@ class Test_bugfix(unittest.TestCase):
             mock_sess.assert_called_with(
                 'POST', 'https://hello.content/stream', params=None,
                 files=None, headers=None, stream=None, verify=False, data=m())
+
+    @patch.object(requests.Session, 'request')
+    @patch('requests.Response')
+    def test_simple_media_upload(self, mock_resp, mock_sess):
+        from mock import call
+        from mock import ANY
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {'id': 'abc'}
+        mock_sess.return_value = mock_resp
+
+        body = {
+            'title': "FileName",
+            'parents': [{'id': 'root'}],
+            'mimeType': 'application/octet-stream',
+        }
+        with patch('gdapi.apirequest.open',
+                   mock_open(read_data='bibble'), create=True) as m:
+            fd, temp_path = tempfile.mkstemp()
+            os.close(fd)  # we use temp_path only
+            self.ar.simple_media_upload(temp_path, body=body)
+            m.assert_called_once_with(temp_path, 'rb')
+            expected = [call('POST', 'https://www.googleapis.com/upload/drive/v2/files',
+                             params={'uploadType': 'media'},
+                             headers=ANY, verify=False, data=m()),
+                        call('PUT', 'https://www.googleapis.com/drive/v2/files/abc',
+                            headers=ANY,
+                             verify=False, data=json.dumps(body)),]
+            mock_sess.assert_has_calls(expected)
 
     @patch.object(requests.Session, 'request')
     @patch('requests.Response')
