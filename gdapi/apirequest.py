@@ -230,6 +230,166 @@ class APIRequest(object):
         return resp.json()
 
     @retry(requests.ConnectionError, 5, delay=1)
+    def resumable_file_upload_v1(self,
+                                 fp,
+                                 body,
+                                 verify=True):
+        """Create a file.
+
+        :param fp:
+            file object or file path.
+        :type fp:
+            `file object` or `unicode`.
+
+        :param headers:
+            Request headers.
+        :type headers:
+            `dict`.
+
+        :param body:
+            Request body.
+        :type body:
+            `dict`.
+
+        :returns:
+            Response from the API call.
+        :rtype:
+            `dict`
+        """
+        import xml.etree.ElementTree as ET
+        self._logger.debug(u"file {0} with body {1}"
+                           "".format(fp, body))
+        req = requests.Session()
+        req.headers.update(self._default_headers)
+        headers = {
+            "GData-Version": 3,
+            "Content-Length": 0,
+            "X-Upload-Content-Type": "application/octet-stream",
+        }
+        resp = self._api_request(
+            'POST',
+            'https://docs.google.com/feeds/upload'
+            '/create-session/default/private/full?convert=false',
+            session=req,
+            headers=headers,
+            verify=verify,)
+
+        if self._is_failed_status_code(resp.status_code):
+            if self._is_server_side_error_status_code(resp.status_code):
+                # raise to retry
+                raise requests.ConnectionError
+            elif resp.status_code == 401:  # need to refresh token
+                self._logger.debug('Need to refresh token')
+                if self._refresh_access_token():  # retry on success
+                    raise requests.ConnectionError
+            else:  # need to log 'request exception' to file
+                   # and notify user via UI
+                error = resp.json().get('error', {})
+                if error.get('code') == 403 and \
+                   error.get('errors')[0].get('reason') \
+                   in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                    self._logger.debug('Rate limit, retry')
+                    self._logger.debug(error)
+                    raise requests.ConnectionError
+                raise GoogleApiError(
+                    code=resp.status_code,
+                    message=error.get('message', resp.content))
+            return None
+        resumable_url = resp.headers.get('location', None)
+        if resumable_url is None:
+            self._error['reason'] = 'No resumable url {0}'.format(
+                resp.headers)
+            return None
+        if hasattr(fp, 'read'):
+            resp = self._api_request(
+                'POST',
+                resumable_url,
+                session=req,
+                data=fp,
+                verify=False)
+        else:
+            with open(fp, 'rb') as f:
+                resp = self._api_request(
+                    'POST',
+                    resumable_url,
+                    session=req,
+                    data=f,
+                    verify=False)
+        if self._is_failed_status_code(resp.status_code):
+            if self._is_server_side_error_status_code(resp.status_code):
+                # raise to retry
+                raise requests.ConnectionError
+            elif resp.status_code == 401:  # need to refresh token
+                # if 401, we still raise to retry
+                self._logger.debug('Need to refresh token')
+                if self._refresh_access_token():  # retry on success
+                    raise requests.ConnectionError
+            elif resp.status_code == 404:  # precondition error
+                self._logger.debug(
+                    '404, Google Best Practise says retry:'
+                    'https://developers.google.com/drive/'
+                    'manage-uploads#best-practices')
+                raise requests.ConnectionError
+            else:  # need to log 'request exception' to file
+                   # and notify user via UI
+                error = resp.json().get('error', {})
+                if error.get('code') == 403 and \
+                   error.get('errors')[0].get('reason') \
+                   in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                    self._logger.debug('Rate limit, retry')
+                    self._logger.debug(error)
+                    raise requests.ConnectionError
+                raise GoogleApiError(
+                    code=resp.status_code,
+                    message=error.get('message', resp.content))
+            return None
+        self._logger.debug(resp.content)
+        root = ET.fromstring(resp.content)
+        file_node = root.find('{http://www.w3.org/2005/Atom}id')
+        # <id>https://docs.google.com/feeds/id/file%3A0B2XjOSViGRlPRGRvenZaRjh5N0E</id>
+        self._logger.debug(file_node)
+        file_id = file_node.text.replace(
+            'https://docs.google.com/feeds/id/file%3A', '')
+        self._logger.debug(file_id)
+
+        retries = 2
+        while body and retries > 0:
+            retries = retries - 1
+            self._logger.debug(u"Update file {0} with {1}".format(
+                file_id, json.dumps(body)))
+            req.headers.update(self._default_headers)
+            resp = req.put(
+                urljoin(self._API_URL, '/drive/v2/files/{0}'.format(
+                    file_id)),
+                headers=headers,
+                data=json.dumps(body),
+                verify=False,)
+            if self._is_failed_status_code(resp.status_code):
+                if self._is_server_side_error_status_code(resp.status_code):
+                    # continue to retry
+                    continue
+                elif resp.status_code == 401:  # need to refresh token
+                    self._logger.debug('Need to refresh token')
+                    if self._refresh_access_token():  # retry on success
+                        continue
+                else:  # need to log 'request exception' to file
+                    # and notify user via UI
+                    error = resp.json().get('error', {})
+                    if error.get('code') == 403 and \
+                    error.get('errors')[0].get('reason') \
+                    in ['rateLimitExceeded', 'userRateLimitExceeded']:
+                        self._logger.debug('Rate limit, retry')
+                        continue
+                    raise GoogleApiError(code=resp.status_code,
+                                        message=error.get('message', resp.content))
+                self._error['code'] = resp.status_code
+                self._error['reason'] = resp.reason
+                return None
+            drive_file = resp.json()
+        self._logger.debug(drive_file)
+        return drive_file
+
+    @retry(requests.ConnectionError, 5, delay=1)
     def resumable_file_upload(self,
                               fp,
                               body,
