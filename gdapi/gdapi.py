@@ -251,6 +251,14 @@ class GDAPI(object):
                     f.write(data)
         return drive_file
 
+    def request(self, method, url):
+        """https://docs.google.com/feeds/default/private/full"""
+        status_code, resp = self._googleapi.api_request(
+            method, url)
+        self._logger.debug(status_code)
+        self._logger.debug(resp.content)
+        return resp
+
     def trash_file(self, file_id):
         """Trash a file.
 
