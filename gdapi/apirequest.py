@@ -579,7 +579,10 @@ class APIRequest(object):
             self._error['reason'] = resp.reason
             return None
         drive_file = resp.json()
-        if body:
+        self._logger.debug(drive_file)
+        retries = 2
+        while body and retries > 0:
+            retries = retries - 1
             self._logger.debug(u"Update file {0} with {1}".format(
                 drive_file['id'], json.dumps(body)))
             req.headers.update(self._default_headers)
@@ -591,12 +594,12 @@ class APIRequest(object):
                 verify=False,)
             if self._is_failed_status_code(resp.status_code):
                 if self._is_server_side_error_status_code(resp.status_code):
-                    # raise to retry
-                    raise requests.ConnectionError
+                    # continue to retry
+                    continue
                 elif resp.status_code == 401:  # need to refresh token
                     self._logger.debug('Need to refresh token')
                     if self._refresh_access_token():  # retry on success
-                        raise requests.ConnectionError
+                        continue
                 else:  # need to log 'request exception' to file
                     # and notify user via UI
                     error = resp.json().get('error', {})
@@ -604,7 +607,7 @@ class APIRequest(object):
                     error.get('errors')[0].get('reason') \
                     in ['rateLimitExceeded', 'userRateLimitExceeded']:
                         self._logger.debug('Rate limit, retry')
-                        raise requests.ConnectionError
+                        continue
                     raise GoogleApiError(code=resp.status_code,
                                         message=error.get('message', resp.content))
                 self._error['code'] = resp.status_code
