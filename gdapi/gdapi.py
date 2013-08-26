@@ -277,7 +277,7 @@ class GDAPI(object):
                 'labels': {'trashed': True},
             }
             status_code, drive_file = self._googleapi.api_request(
-                'PATCH',
+                'UPDATE',
                 '/drive/v2/files/{0}'.format(file_id),
                 data=body)
             self._logger.debug("Trash result: {0}".format(
