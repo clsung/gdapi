@@ -11,7 +11,7 @@ config = {
     'url': 'https://github.com/clsung/gdapi',
     'download_url': 'http://pypi.python.org/pypi/gdapi',
     'author_email': 'clsung@gmail.com',
-    'version': '0.1.8',
+    'version': '0.1.9',
     'test_requires': test_requirements,
     'install_requires': ['requests'],
     'packages': ['gdapi'],
