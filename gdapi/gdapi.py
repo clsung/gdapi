@@ -368,10 +368,10 @@ class GDAPI(object):
         return self._make_role_for_file(
             file_id, 'user', user_email, 'writer')
 
-    def make_user_reader_for_file(self, file_id, user_email):
+    def make_user_reader_for_file(self, file_id, user_email, with_link=True):
         """The api for share file/folder"""
         return self._make_role_for_file(
-            file_id, 'user', user_email, 'reader')
+            file_id, 'user', user_email, 'reader', with_link)
 
     def _make_role_for_file(self, file_id,
                             perm_type, value, role,
