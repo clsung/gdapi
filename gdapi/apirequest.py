@@ -3,7 +3,10 @@ import os
 import logging
 import requests
 import json
-from urlparse import urljoin
+try:
+    from urlparse import urljoin
+except ImportError:
+    from urllib.parse import urljoin  # 3.*
 from .utils import retry
 from .errors import GoogleApiError
 
