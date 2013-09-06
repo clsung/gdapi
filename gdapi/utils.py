@@ -33,16 +33,25 @@ def retry(ExceptionToHandle, tries, delay=3, backoff=2, logger_name=None):
                 try:
                     return f(*args, **kwargs)  # first attempt
                 except ExceptionToHandle as e:
-                    import traceback
+                    from traceback import format_tb, extract_stack
                     if 'socket.gaierror' in repr(e):  # no network
                         sleep(9.5 + randint(0, 1000) / 1000)
                         msg = "No network, retry in 10 sec"
                         logger.debug(msg)
                     else:
-                        msg = "Retrying in %d seconds... %d Reason: %s, %s" % (
-                            mdelay, mtries, repr(e), repr(traceback.format_tb(
-                                sys.exc_info()[2])))
+                        msg = ("Retrying {0} in {1} seconds... "
+                               "{2} Reason: {3}, {4}".format(
+                                   f, mdelay, mtries, repr(e),
+                                   repr(format_tb(sys.exc_info()[2]))))
                         logger.debug(msg)
+                        stack = extract_stack()
+                        last_func_before_retry = stack[-2][2]
+                        if last_func_before_retry == '_make_role_for_file':
+                            from .errors import EmailInvalidError
+                            raise EmailInvalidError(
+                                code=500,
+                                message='Server Error or Invalid account'
+                                )
                         mtries -= 1      # consume an attempt
                         sleep(mdelay)  # wait...
                         mdelay = min(mdelay * backoff, 600)  # max 10 mins

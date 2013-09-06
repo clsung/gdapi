@@ -27,3 +27,8 @@ class GoogleApiError(Exception):
     @property
     def message(self):
         return self.__unicode__()
+
+class EmailInvalidError(GoogleApiError):
+    """Catch permission insert's 500 status code"""
+    def __init__(self, *args, **kwargs):
+        super(EmailInvalidError, self).__init__(*args, **kwargs)
