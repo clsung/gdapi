@@ -29,6 +29,30 @@ class GDAPI(object):
         )
         return drive_file
 
+    def copy_file(self, file_id):
+        """Copy a file.
+
+        :param file_id:
+            The id of the file to copy.
+        :type file_id:
+            `unicode`
+
+        :returns:
+            Response from the API call.
+        :rtype:
+            `dict`
+        """
+        try:
+            status_code, drive_file = self._googleapi.api_request(
+                'POST',
+                '/drive/v2/files/{0}/copy'.format(file_id))
+            self._logger.debug("COPY result: {0}".format(
+                drive_file))
+        except Exception as error:
+            self._logger.exception(error)
+            drive_file = None
+        return drive_file
+
     def create_file(self, parent_id, file_path, title,
                     description=None, mime_type=None):
         """Upload a file.
@@ -256,7 +280,7 @@ class GDAPI(object):
         status_code, resp = self._googleapi.api_request(
             method, url)
         self._logger.debug(status_code)
-        self._logger.debug(resp.content)
+        self._logger.debug(resp)
         return resp
 
     def trash_file(self, file_id):
