@@ -21,6 +21,13 @@ class GDAPI(object):
         self._logger = logging.getLogger(u"gdapi.%s" % self.__class__.__name__)
         self._googleapi = APIRequest(credential_path)
 
+    def about(self):
+        status_code, about = self._googleapi.api_request(
+            'GET',
+            '/drive/v2/about',
+        )
+        return about
+
     def get_file_meta(self, file_id):
         self._logger.debug(file_id)
         status_code, drive_file = self._googleapi.api_request(
